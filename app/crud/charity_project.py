@@ -1,47 +1,47 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import CharityProject
-from app.schemas.charity_project import CharityProjectCreate, CharityProjectUpdate, CharityProjectResponse
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from app.models import CharityProject, Donation, User
 from app.core.investment import invest_in_project
-from app.crud.base import CRUDBase
+from app.schemas.charity_project import CharityProjectCreate, CharityProjectUpdate
+from typing import List
+from .base import CRUDBase
+from fastapi import HTTPException
+
 
 class CharityProjectCRUD(CRUDBase):
-    def __init__(self):
-        super().__init__(model=CharityProject)
 
-    async def create(
-            self,
-            obj_in: CharityProjectCreate,
-            session: AsyncSession,
-    ):
-        # Создаем новый проект с использованием базового метода create
-        db_obj = await super().create(obj_in, session)
-
-        # Инвестируем средства сразу после создания
-        await invest_in_project(session, db_obj.id)
-
-        return db_obj
-
-    async def update(
-            self,
-            db_obj,
-            obj_in: CharityProjectUpdate,
-            session: AsyncSession,
-    ):
-        db_obj = await super().update(db_obj, obj_in, session)
+    async def create(self, obj_in: CharityProjectCreate, session: AsyncSession):
+        # Создаем проект
+        project = await super().create(obj_in, session)
         
-        # Проверяем, если обновлены какие-то параметры и требуется перерасчет
-        if db_obj.full_amount != db_obj.invested_amount:
-            await invest_in_project(session, db_obj.id)
+        # После создания проекта, запускаем процесс "инвестирования"
+        await invest_in_project(project, session)
         
-        return db_obj
+        return project
 
-    async def remove(
-            self,
-            db_obj,
-            session: AsyncSession,
-    ):
-        # Удаление возможно только если проект не имеет инвестированных средств
-        if db_obj.invested_amount == 0:
-            return await super().remove(db_obj, session)
-        else:
-            return None  # Если проект не пустой, его нельзя удалить
+    async def update(self, db_obj: CharityProject, obj_in: CharityProjectUpdate, session: AsyncSession) -> CharityProject:
+        # Проверяем, что размер требуемой суммы не меньше уже внесенной
+        if obj_in.full_amount < db_obj.invested_amount:
+            raise HTTPException(status_code=400, detail="New required amount cannot be less than the invested amount")
+        
+        # Обновляем проект
+        return await super().update(db_obj, obj_in, session)
+
+    async def remove(self, db_obj: CharityProject, session: AsyncSession) -> CharityProject:
+        # Удалять проекты можно только если в проект еще не были внесены средства
+        if db_obj.invested_amount > 0:
+            raise HTTPException(status_code=400, detail="Cannot delete a project with funds")
+        return await super().remove(db_obj, session)
+
+    async def get_projects(self, session: AsyncSession) -> List[CharityProject]:
+        # Получаем все проекты, для отображения пользователям
+        result = await session.execute(select(CharityProject).options(selectinload(CharityProject.donations)))
+        return result.scalars().all()
+
+    async def get_project(self, obj_id: int, session: AsyncSession) -> CharityProject:
+        # Получаем проект по id
+        return await super().get(obj_id, session)
+
+
+charity_project_crud = CharityProjectCRUD(CharityProject)

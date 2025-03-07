@@ -1,56 +1,44 @@
+from app.models import Donation, CharityProject, User
+from app.core.investment import invest_in_donation
+from app.schemas.donation import DonationCreate
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Donation
-from app.schemas import DonationCreate, DonationUpdate
-from app.crud import CRUDBase
-
-
+from sqlalchemy.future import select
+from typing import List
+from app.crud.base import CRUDBase
 
 class DonationCRUD(CRUDBase):
-    def __init__(self):
-        super().__init__(model=Donation)
 
-    async def create(
-            self,
-            obj_in: DonationCreate,
-            session: AsyncSession,
-    ):
+    async def create(self, obj_in: DonationCreate, session: AsyncSession, user: User) -> Donation:
         # Создаем пожертвование
-        db_obj = await super().create(obj_in, session)
+        donation = await super().create(obj_in, session, user)
 
-        # После создания пожертвования, автоматически увеличиваем invested_amount у проекта
-        await self._update_project_investment(session, db_obj.project_id, db_obj.amount)
+        # После создания пожертвования, запускаем процесс "инвестирования"
+        await invest_in_donation(donation, session)
 
-        return db_obj
+        return donation
 
-    async def update(
-            self,
-            db_obj,
-            obj_in: DonationUpdate,
-            session: AsyncSession,
-    ):
-        # Обновление пожертвования
-        db_obj = await super().update(db_obj, obj_in, session)
+    async def get_donations_for_user(self, user_id: int, session: AsyncSession) -> List[Donation]:
+        # Получаем все пожертвования пользователя
+        result = await session.execute(
+            select(Donation).filter(Donation.user_id == user_id)
+        )
+        return result.scalars().all()
 
-        # После обновления, пересчитываем вклад в проект
-        await self._update_project_investment(session, db_obj.project_id, db_obj.amount)
+    async def get_all_donations(self, session: AsyncSession) -> List[Donation]:
+        # Получаем все пожертвования, для суперпользователя
+        result = await session.execute(select(Donation))
+        return result.scalars().all()
 
-        return db_obj
+    async def get_donation(self, obj_id: int, session: AsyncSession) -> Donation:
+        # Получаем пожертвование по id
+        return await super().get(obj_id, session)
+    
+    async def get_by_user(self, user_id: int, session: AsyncSession) -> List[Donation]:
+        # Получаем пожертвования только для указанного пользователя
+        donations = await session.execute(
+            select(Donation).filter(Donation.user_id == user_id)
+        )
+        return donations.scalars().all()
 
-    async def _update_project_investment(self, session: AsyncSession, project_id: int, amount: int):
-        # Логика для обновления суммы, внесенной в проект
-        project = await session.execute(select(Donation).where(Donation.project_id == project_id))
-        project = project.scalars().first()
 
-        if not project:
-            return None
-
-        # Добавляем средства в проект
-        project.invested_amount += amount
-        if project.invested_amount >= project.full_amount:
-            project.fully_invested = True
-            project.close_date = datetime.utcnow()
-
-        # Сохраняем изменения
-        await session.commit()
-        await session.refresh(project)
-        return project
+donation_crud = DonationCRUD(Donation)
