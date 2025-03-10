@@ -17,7 +17,7 @@ async def create_donation(
 ):
     # Проверяем, что сумма пожертвования больше 0
     if donation.full_amount <= 0:
-        raise HTTPException(status_code=400, detail="Donation amount must be greater than 0")
+        raise HTTPException(status_code=422, detail="Donation amount must be greater than 0")
 
     # Создаем пожертвование через CRUD
     new_donation = await donation_crud.create(donation, session, current_user)
@@ -28,11 +28,11 @@ async def create_donation(
     return new_donation
 
 
-@router.get("/", response_model=list[DonationAdminResponse])
-async def get_all_donations(db: Session = Depends(get_async_session), current_user: User = Depends(current_user)):
+@router.get("/", response_model=list[DonationAdminResponse], dependencies=[Depends(current_superuser)],)
+async def get_all_donations(db: Session = Depends(get_async_session)):
     # Проверяем, является ли текущий пользователь суперпользователем
-    if not current_superuser(current_user):
-        raise HTTPException(status_code=403, detail="You don't have permission to view all donations")
+    # if not current_superuser(current_user):
+    #     raise HTTPException(status_code=403, detail="You don't have permission to view all donations")
     
     # Получаем все пожертвования через CRUD
     donations = await donation_crud.get_multi(db)
