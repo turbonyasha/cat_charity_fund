@@ -1,40 +1,49 @@
-from app.models import Donation, CharityProject, User
-from app.core.investment import invest_in_donation
-from app.schemas.donation import DonationCreate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List
+
+from app.models import Donation, User
+from app.core.investment import invest_donation
+from app.schemas.donation import DonationCreate
 from app.crud.base import CRUDBase
 
+
 class DonationCRUD(CRUDBase):
+    async def create(
+        self,
+        donation: DonationCreate,
+        session: AsyncSession,
+        user: User
+    ) -> Donation:
+        new_donation = await super().create(donation, session, user)
+        await invest_donation(new_donation, session)
+        return new_donation
 
-    async def create(self, obj_in: DonationCreate, session: AsyncSession, user: User) -> Donation:
-        # Создаем пожертвование
-        donation = await super().create(obj_in, session, user)
-
-        # После создания пожертвования, запускаем процесс "инвестирования"
-        await invest_in_donation(donation, session)
-
-        return donation
-
-    async def get_donations_for_user(self, user_id: int, session: AsyncSession) -> List[Donation]:
-        # Получаем все пожертвования пользователя
+    async def get_donations_for_user(
+        self,
+        user_id: int,
+        session: AsyncSession
+    ) -> list[Donation]:
         result = await session.execute(
             select(Donation).filter(Donation.user_id == user_id)
         )
         return result.scalars().all()
 
-    async def get_all_donations(self, session: AsyncSession) -> List[Donation]:
-        # Получаем все пожертвования, для суперпользователя
+    async def get_all_donations(self, session: AsyncSession) -> list[Donation]:
         result = await session.execute(select(Donation))
         return result.scalars().all()
 
-    async def get_donation(self, obj_id: int, session: AsyncSession) -> Donation:
-        # Получаем пожертвование по id
-        return await super().get(obj_id, session)
-    
-    async def get_by_user(self, user_id: int, session: AsyncSession) -> List[Donation]:
-        # Получаем пожертвования только для указанного пользователя
+    async def get_donation(
+        self,
+        donation_id: int,
+        session: AsyncSession
+    ) -> Donation:
+        return await super().get(donation_id, session)
+
+    async def get_by_user(
+        self,
+        user_id: int,
+        session: AsyncSession
+    ) -> list[Donation]:
         donations = await session.execute(
             select(Donation).filter(Donation.user_id == user_id)
         )

@@ -16,29 +16,18 @@ from app.models.user import User
 from app.schemas.user import UserCreate
 
 
-# обеспечивает доступ к БД через SQLAlchemy и в дальнейшем будет
-# использоваться в качестве зависимости (dependency) для объекта класса UserManager:
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
     yield SQLAlchemyUserDatabase(session, User)
 
-
-# Определяем транспорт: передавать токен будем
-# через заголовок HTTP-запроса Authorization: Bearer. 
-# Указываем URL эндпоинта для получения токена.
 bearer_transport = BearerTransport(tokenUrl='auth/jwt/login')
 
 
-# Определяем стратегию: хранение токена в виде JWT.
 def get_jwt_strategy() -> JWTStrategy:
-    # В специальный класс из настроек приложения
-    # передаётся секретное слово, используемое для генерации токена.
-    # Вторым аргументом передаём срок действия токена в секундах.
     return JWTStrategy(secret=settings.secret, lifetime_seconds=3600)
 
 
-# Создаём объект бэкенда аутентификации с выбранными параметрами.
 auth_backend = AuthenticationBackend(
-    name='jwt',  # Произвольное имя бэкенда (должно быть уникальным).
+    name='jwt',
     transport=bearer_transport,
     get_strategy=get_jwt_strategy,
 )
@@ -46,10 +35,6 @@ auth_backend = AuthenticationBackend(
 
 class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
 
-    # Здесь можно описать свои условия валидации пароля.
-    # При успешной валидации функция ничего не возвращает.
-    # При ошибке валидации будет вызван специальный класс ошибки
-    # InvalidPasswordException.
     async def validate_password(
         self,
         password: str,
@@ -64,29 +49,21 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
                 reason='Password should not contain e-mail'
             )
 
-    # Пример метода для действий после успешной регистрации пользователя.
     async def on_after_register(
             self, user: User, request: Optional[Request] = None
     ):
-        # Вместо print здесь можно было бы настроить отправку письма.
         print(f'Пользователь {user.email} зарегистрирован.')
 
 
-# Корутина, возвращающая объект класса UserManager.
 async def get_user_manager(user_db=Depends(get_user_db)):
     yield UserManager(user_db)
 
-# Создаём объект класса FastAPIUsers — это центральный объект библиотеки,
-# связывающий объект класса UserManager и бэкенд аутентификации.
+
 fastapi_users = FastAPIUsers[User, int](
     get_user_manager,
     [auth_backend],
 )
 
 
-# Это методы класса FastAPIUsers, которые мы будем использовать в
-# системе Dependency Injection для получения текущего пользователя
-# при выполнении запросов, а также для разграничения доступа:
-# некоторые эндпоинты будут доступны только суперюзерам.
 current_user = fastapi_users.current_user(active=True)
 current_superuser = fastapi_users.current_user(active=True, superuser=True)

@@ -5,4 +5,5 @@ from app.core.db import Base
 
 
 class User(SQLAlchemyBaseUserTable[int], Base):
-    donations = relationship("Donation", back_populates="user", cascade="all, delete-orphan")
+    donations = relationship(
+        'Donation', back_populates='user', cascade='all, delete-orphan')

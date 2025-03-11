@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, Boolean, DateTime
 from datetime import datetime
 
 from app.core.db import Base
@@ -13,7 +12,3 @@ class BaseInvestModel(Base):
     fully_invested = Column(Boolean, default=False)
     create_date = Column(DateTime, default=datetime.now)
     close_date = Column(DateTime, nullable=True)
-
-    # @classmethod
-    # def __tablename__(cls):
-    #     return ''.join(['_' + i.lower() if i.isupper() else i for i in cls.__name__]).lstrip('_')
