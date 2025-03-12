@@ -2,8 +2,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models import Donation, User
-from app.core.investment import invest_donation
+from app.services.investment import invest
 from app.schemas.donation import DonationCreate
+from app.models import CharityProject
 from app.crud.base import CRUDBase
 
 
@@ -15,29 +16,18 @@ class DonationCRUD(CRUDBase):
         user: User
     ) -> Donation:
         new_donation = await super().create(donation, session, user)
-        await invest_donation(new_donation, session)
-        return new_donation
-
-    async def get_donations_for_user(
-        self,
-        user_id: int,
-        session: AsyncSession
-    ) -> list[Donation]:
-        result = await session.execute(
-            select(Donation).filter(Donation.user_id == user_id)
+        sources = await session.execute(
+            select(CharityProject).filter(
+                CharityProject.fully_invested.is_(False))
         )
-        return result.scalars().all()
-
-    async def get_all_donations(self, session: AsyncSession) -> list[Donation]:
-        result = await session.execute(select(Donation))
-        return result.scalars().all()
-
-    async def get_donation(
-        self,
-        donation_id: int,
-        session: AsyncSession
-    ) -> Donation:
-        return await super().get(donation_id, session)
+        sources = sources.scalars().all()
+        target, changed_sources = invest(new_donation, sources)
+        session.add(target)
+        if changed_sources:
+            session.add_all(changed_sources)
+        await session.commit()
+        await session.refresh(target)
+        return new_donation
 
     async def get_by_user(
         self,

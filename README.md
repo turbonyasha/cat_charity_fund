@@ -77,6 +77,8 @@ uvicorn app.main:app --reload
 
 Документация API проекта в формате Swagger доступна после запуска проекта на локальном сервере на эндпоинте [/docs](http://127.0.0.1:8000/docs)
 
+Также можно скачать документацию в виде [openapi.json](https://code.s3.yandex.net/Python-dev/openapi.json) файла и загрузить его на сайт [ReDoc](https://redocly.github.io/redoc/) с помощью кнопки **Upload a file** вверху сайта.
+
 
 ## Автор проекта
 [Женя Скуратова]

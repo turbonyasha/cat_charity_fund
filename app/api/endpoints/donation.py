@@ -20,7 +20,7 @@ async def create_donation(
     session: Session = Depends(get_async_session),
     current_user: User = Depends(current_user)
 ):
-    await validate_donation_amount(donation.full_amount)
+    validate_donation_amount(donation.full_amount)
     new_donation = await donation_crud.create(donation, session, current_user)
     return new_donation
 

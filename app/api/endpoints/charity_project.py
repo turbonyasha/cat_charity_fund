@@ -1,16 +1,24 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from app.core.db import get_async_session
 from app.core.user import current_superuser
 from app.crud.charity_project import charity_project_crud
-from app.api.validators import validate_unique_name
-from app.schemas.charity_project import (
-    CharityProjectCreate, CharityProjectUpdate, CharityProjectResponse
-)
 from app.api.validators import (
-    validate_project_exists, validate_project_is_open,
-    validate_project_invested_amount
+    validate_unique_name, validate_project_exists,
+    validate_project_is_open, validate_project_invested_amount
+)
+from app.models import Donation
+from app.services.investment import invest
+from app.schemas.charity_project import (
+    CharityProjectCreate, CharityProjectUpdate,
+    CharityProjectResponse
+)
+
+FULL_INVESTED = 'Нельзя обновить полностью проинвестированный проект'
+NEW_FULL_AMOUNT_CANT_BE_LESS = (
+    'Новая сумма сбора не может быть меньше предыдущей.'
 )
 
 router = APIRouter()
@@ -33,10 +41,27 @@ async def list_projects(
 )
 async def create_project(
     project: CharityProjectCreate,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    commit_after_all_changes: bool = True
 ):
     await validate_unique_name(project.name, session=session)
-    return await charity_project_crud.create(project, session)
+    new_project = await charity_project_crud.create(
+        project,
+        session,
+        commit_after_all_changes=commit_after_all_changes
+    )
+    sources = await session.execute(
+        select(Donation).filter(Donation.fully_invested.is_(False))
+    )
+    sources = sources.scalars().all()
+    target, changed_sources = invest(new_project, sources)
+    session.add(target)
+    if changed_sources:
+        session.add_all(changed_sources)
+    if commit_after_all_changes:
+        await session.commit()
+        await session.refresh(target)
+    return new_project
 
 
 @router.patch(
@@ -47,17 +72,38 @@ async def create_project(
 async def update_project(
     project_id: int,
     project_data: CharityProjectUpdate,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    commit_after_all_changes: bool = True
 ):
     project = await charity_project_crud.get(project_id, session)
-    await validate_project_exists(project)
+    validate_project_exists(project)
+    if project.fully_invested:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=FULL_INVESTED
+        )
     if project_data.name:
         await validate_unique_name(
             project_data.name, project_id=project_id, session=session
         )
-    return await charity_project_crud.update(
-        project, project_data, session
+    if project_data.full_amount is not None:
+        if project_data.full_amount < project.invested_amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=NEW_FULL_AMOUNT_CANT_BE_LESS
+            )
+        project.full_amount = project_data.full_amount
+    if project_data.description is not None:
+        project.description = project_data.description
+    updated_project = await charity_project_crud.update(
+        project,
+        project_data,
+        session,
     )
+    if commit_after_all_changes:
+        await session.commit()
+        await session.refresh(updated_project)
+    return updated_project
 
 
 @router.delete(
@@ -67,11 +113,14 @@ async def update_project(
 )
 async def delete_project(
     project_id: int,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    commit_after_all_changes: bool = True
 ):
     project = await charity_project_crud.get(project_id, session)
-    await validate_project_exists(project)
-    await validate_project_is_open(project)
-    await validate_project_invested_amount(project)
+    validate_project_exists(project)
+    validate_project_is_open(project)
+    validate_project_invested_amount(project)
     deleted_project = await charity_project_crud.remove(project, session)
+    if commit_after_all_changes:
+        await session.commit()
     return deleted_project

@@ -33,12 +33,12 @@ async def validate_unique_name(
         )
 
 
-async def validate_donation_amount(donation_amount: float):
+def validate_donation_amount(donation_amount: float):
     if donation_amount <= 0:
         raise HTTPException(status_code=422, detail=DONATION_POSITIVE)
 
 
-async def validate_project_exists(project):
+def validate_project_exists(project):
     if project is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -46,7 +46,7 @@ async def validate_project_exists(project):
         )
 
 
-async def validate_project_is_open(project):
+def validate_project_is_open(project):
     if project.close_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -54,7 +54,7 @@ async def validate_project_is_open(project):
         )
 
 
-async def validate_project_invested_amount(project):
+def validate_project_invested_amount(project):
     if project.invested_amount > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
