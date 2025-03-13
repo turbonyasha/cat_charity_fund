@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Type
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
@@ -36,18 +36,16 @@ class CRUDBase:
             obj_in,
             session: AsyncSession,
             user: Optional[User] = None,
-            commit_after_all_changes: bool = True
+            commit: bool = True
     ):
         obj_in_data = obj_in.dict()
         if user is not None:
             obj_in_data['user_id'] = user.id
         db_obj = self.model(**obj_in_data)
         session.add(db_obj)
-        if commit_after_all_changes:
+        if commit:
             await session.commit()
             await session.refresh(db_obj)
-        else:
-            pass
         return db_obj
 
     async def update(
@@ -75,3 +73,13 @@ class CRUDBase:
         await session.delete(db_obj)
         await session.commit()
         return db_obj
+
+    async def get_non_invested_sources(
+            self,
+            session: AsyncSession,
+            model: Type
+    ):
+        result = await session.execute(
+            select(model).filter(model.fully_invested.is_(False))
+        )
+        return result.scalars().all()

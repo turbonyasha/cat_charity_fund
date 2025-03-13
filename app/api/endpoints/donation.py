@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.models import User
+from app.models import User, CharityProject
 from app.schemas.donation import (
     DonationAdminResponse, DonationCreate, DonationResponse
 )
@@ -9,6 +9,7 @@ from app.core.db import get_async_session
 from app.core.user import current_user, current_superuser
 from app.crud.donation import donation_crud
 from app.api.validators import validate_donation_amount
+from app.services.investment import invest
 
 
 router = APIRouter()
@@ -21,7 +22,19 @@ async def create_donation(
     current_user: User = Depends(current_user)
 ):
     validate_donation_amount(donation.full_amount)
-    new_donation = await donation_crud.create(donation, session, current_user)
+    new_donation = await donation_crud.create(
+        donation,
+        session,
+        current_user,
+        commit=False
+    )
+    sources = await donation_crud.get_non_invested_sources(
+        session, model=CharityProject
+    )
+    changed_sources = invest(new_donation, sources)
+    session.add_all(changed_sources)
+    await session.commit()
+    await session.refresh(new_donation)
     return new_donation
 
 

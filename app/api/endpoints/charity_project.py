@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 
 from app.core.db import get_async_session
 from app.core.user import current_superuser
@@ -42,25 +41,20 @@ async def list_projects(
 async def create_project(
     project: CharityProjectCreate,
     session: AsyncSession = Depends(get_async_session),
-    commit_after_all_changes: bool = True
 ):
     await validate_unique_name(project.name, session=session)
     new_project = await charity_project_crud.create(
         project,
         session,
-        commit_after_all_changes=commit_after_all_changes
+        commit=False
     )
-    sources = await session.execute(
-        select(Donation).filter(Donation.fully_invested.is_(False))
+    sources = await charity_project_crud.get_non_invested_sources(
+        session, model=Donation
     )
-    sources = sources.scalars().all()
-    target, changed_sources = invest(new_project, sources)
-    session.add(target)
-    if changed_sources:
-        session.add_all(changed_sources)
-    if commit_after_all_changes:
-        await session.commit()
-        await session.refresh(target)
+    changed_sources = invest(new_project, sources)
+    session.add_all(changed_sources)
+    await session.commit()
+    await session.refresh(new_project)
     return new_project
 
 
