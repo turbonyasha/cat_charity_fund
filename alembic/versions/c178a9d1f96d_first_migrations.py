@@ -1,8 +1,8 @@
-"""all
+"""first migrations
 
-Revision ID: 19a559480786
+Revision ID: c178a9d1f96d
 Revises: 
-Create Date: 2025-03-04 22:52:17.975115
+Create Date: 2025-03-14 00:21:32.510029
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '19a559480786'
+revision = 'c178a9d1f96d'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -27,6 +27,9 @@ def upgrade():
     sa.Column('close_date', sa.DateTime(), nullable=True),
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('description', sa.Text(), nullable=False),
+    sa.CheckConstraint('full_amount > 0', name='check_full_amount_positive'),
+    sa.CheckConstraint('invested_amount <= full_amount', name='check_invested_amount'),
+    sa.CheckConstraint('invested_amount >= 0', name='check_invested_amount_non_negative'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -49,10 +52,11 @@ def upgrade():
     sa.Column('fully_invested', sa.Boolean(), nullable=True),
     sa.Column('create_date', sa.DateTime(), nullable=True),
     sa.Column('close_date', sa.DateTime(), nullable=True),
-    sa.Column('project_id', sa.Integer(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('comment', sa.Text(), nullable=True),
-    sa.ForeignKeyConstraint(['project_id'], ['charityproject.id'], ),
+    sa.CheckConstraint('full_amount > 0', name='check_full_amount_positive'),
+    sa.CheckConstraint('invested_amount <= full_amount', name='check_invested_amount'),
+    sa.CheckConstraint('invested_amount >= 0', name='check_invested_amount_non_negative'),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

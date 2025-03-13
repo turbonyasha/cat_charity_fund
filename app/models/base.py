@@ -18,4 +18,12 @@ class BaseInvestModel(Base):
             'full_amount > 0', name='check_full_amount_positive'),
         CheckConstraint(
             'invested_amount <= full_amount', name='check_invested_amount'),
+        CheckConstraint(
+            'invested_amount >= 0', name='check_invested_amount_non_negative'),
     )
+
+    def __repr__(self):
+        attributes = vars(self)
+        repr_str = ", ".join(
+            f"{key}={value}" for key, value in attributes.items())
+        return f"({self.__class__.__name__}={{{repr_str}}})"

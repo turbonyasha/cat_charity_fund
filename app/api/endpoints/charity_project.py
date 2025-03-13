@@ -55,6 +55,7 @@ async def create_project(
     session.add_all(changed_sources)
     await session.commit()
     await session.refresh(new_project)
+    print(new_project)
     return new_project
 
 
