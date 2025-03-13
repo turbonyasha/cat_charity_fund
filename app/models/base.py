@@ -24,6 +24,6 @@ class BaseInvestModel(Base):
 
     def __repr__(self):
         attributes = vars(self)
-        repr_str = ", ".join(
-            f"{key}={value}" for key, value in attributes.items())
-        return f"({self.__class__.__name__}={{{repr_str}}})"
+        repr_str = ', '.join(
+            f'{key}={value}' for key, value in attributes.items())
+        return f'({self.__class__.__name__}={{{repr_str}}})'
