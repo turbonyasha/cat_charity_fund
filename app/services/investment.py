@@ -14,11 +14,12 @@ def invest(
             source.full_amount - source.invested_amount
         )
         for obj in [target, source]:
-            original_invested_amount = obj.invested_amount
             obj.invested_amount += invest_amount
             obj.fully_invested = (obj.invested_amount == obj.full_amount)
             if obj.fully_invested:
                 obj.close_date = datetime.now()
-            if obj.invested_amount != original_invested_amount:
+            if obj.invested_amount != obj.full_amount:
                 changed_sources.append(obj)
+        if target.fully_invested:
+            break
     return changed_sources
