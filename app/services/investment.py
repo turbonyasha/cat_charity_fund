@@ -1,30 +1,24 @@
 from datetime import datetime
-from typing import Union
 
-from app.models import Donation, CharityProject
+from app.models.base import BaseInvestModel
 
 
-def invest(target: Union[Donation, CharityProject], sources: list) -> list:
+def invest(
+    target: BaseInvestModel,
+    sources: list[BaseInvestModel]
+) -> list[BaseInvestModel]:
     changed_sources = []
+    target.invested_amount = target.invested_amount or 0
+    target.full_amount = target.full_amount or 0
     for source in sources:
-        if target.invested_amount is None:
-            target.invested_amount = 0
-        if target.full_amount is None:
-            target.full_amount = 0
-        if target.invested_amount < target.full_amount:
-            invest_amount = min(
-                target.full_amount - target.invested_amount,
-                source.full_amount - source.invested_amount
-            )
-            source.invested_amount += invest_amount
-            target.invested_amount += invest_amount
-            source.fully_invested = (
-                source.invested_amount == source.full_amount)
-            if source.fully_invested:
-                source.close_date = datetime.now()
-            changed_sources.append(source)
-            if target.invested_amount >= target.full_amount:
-                target.fully_invested = True
-                target.close_date = datetime.now()
-                break
+        invest_amount = min(
+            target.full_amount - target.invested_amount,
+            source.full_amount - source.invested_amount
+        )
+        for obj in [target, source]:
+            obj.invested_amount += invest_amount
+            obj.fully_invested = (obj.invested_amount == obj.full_amount)
+            if obj.fully_invested:
+                obj.close_date = datetime.now()
+        changed_sources.append(source)
     return changed_sources

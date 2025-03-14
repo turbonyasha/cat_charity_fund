@@ -9,5 +9,7 @@ class CharityProject(BaseInvestModel):
 
     def __repr__(self):
         base_repr = super().__repr__()
-        project_repr = f', name={self.name}, description={self.description}'
-        return base_repr[:-1] + project_repr + '}'
+        return (
+            f'{base_repr}, name={self.name}, '
+            f'description={self.description}>'
+        )

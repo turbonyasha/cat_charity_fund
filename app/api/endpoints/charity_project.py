@@ -51,8 +51,7 @@ async def create_project(
     sources = await charity_project_crud.get_non_invested_sources(
         session, model=Donation
     )
-    changed_sources = invest(new_project, sources)
-    session.add_all(changed_sources)
+    session.add_all(invest(new_project, sources))
     await session.commit()
     await session.refresh(new_project)
     return new_project

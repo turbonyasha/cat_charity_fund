@@ -17,13 +17,18 @@ class BaseInvestModel(Base):
         CheckConstraint(
             'full_amount > 0', name='check_full_amount_positive'),
         CheckConstraint(
-            'invested_amount <= full_amount', name='check_invested_amount'),
-        CheckConstraint(
-            'invested_amount >= 0', name='check_invested_amount_non_negative'),
+            'invested_amount >= 0 AND invested_amount <= full_amount',
+            name='check_invested_amount_range'
+        ),
     )
 
     def __repr__(self):
-        attributes = vars(self)
-        repr_str = ', '.join(
-            f'{key}={value}' for key, value in attributes.items())
-        return f'({self.__class__.__name__}={{{repr_str}}})'
+        return (
+            f'<{self.__class__.__name__}('
+            f'id={self.id}, '
+            f'full_amount={self.full_amount}, '
+            f'invested_amount={self.invested_amount}, '
+            f'fully_invested={self.fully_invested}, '
+            f'create_date={self.create_date}, '
+            f'close_date={self.close_date})>'
+        )
