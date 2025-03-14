@@ -17,7 +17,7 @@ class BaseInvestModel(Base):
         CheckConstraint(
             'full_amount > 0', name='check_full_amount_positive'),
         CheckConstraint(
-            'invested_amount >= 0 AND invested_amount <= full_amount',
+            '0 <= invested_amount <= full_amount',
             name='check_invested_amount_range'
         ),
     )

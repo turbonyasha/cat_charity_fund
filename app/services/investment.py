@@ -8,17 +8,17 @@ def invest(
     sources: list[BaseInvestModel]
 ) -> list[BaseInvestModel]:
     changed_sources = []
-    target.invested_amount = target.invested_amount or 0
-    target.full_amount = target.full_amount or 0
     for source in sources:
         invest_amount = min(
             target.full_amount - target.invested_amount,
             source.full_amount - source.invested_amount
         )
         for obj in [target, source]:
+            original_invested_amount = obj.invested_amount
             obj.invested_amount += invest_amount
             obj.fully_invested = (obj.invested_amount == obj.full_amount)
             if obj.fully_invested:
                 obj.close_date = datetime.now()
-        changed_sources.append(source)
+            if obj.invested_amount != original_invested_amount:
+                changed_sources.append(obj)
     return changed_sources
