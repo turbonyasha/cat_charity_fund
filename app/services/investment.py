@@ -18,6 +18,7 @@ def invest(
             obj.fully_invested = (obj.invested_amount == obj.full_amount)
             if obj.fully_invested:
                 obj.close_date = datetime.now()
+        for obj in [target, source]:
             if obj.invested_amount != obj.full_amount:
                 changed_sources.append(obj)
         if target.fully_invested:
